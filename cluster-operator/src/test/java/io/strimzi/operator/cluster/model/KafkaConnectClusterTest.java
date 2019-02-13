@@ -68,15 +68,11 @@ public class KafkaConnectClusterTest {
     private final String bootstrapServers = "foo-kafka:9092";
     private final String kafkaHeapOpts = "-Xms" + AbstractModel.DEFAULT_JVM_XMS;
     private final OrderedProperties defaultConfiguration = new OrderedProperties()
-            .addPair("internal.key.converter", "org.apache.kafka.connect.json.JsonConverter")
             .addPair("config.storage.topic", "connect-cluster-configs")
             .addPair("group.id", "connect-cluster")
             .addPair("status.storage.topic", "connect-cluster-status")
-            .addPair("internal.value.converter.schemas.enable", "false")
-            .addPair("internal.value.converter", "org.apache.kafka.connect.json.JsonConverter")
             .addPair("offset.storage.topic", "connect-cluster-offsets")
             .addPair("value.converter", "org.apache.kafka.connect.json.JsonConverter")
-            .addPair("internal.key.converter.schemas.enable", "false")
             .addPair("key.converter", "org.apache.kafka.connect.json.JsonConverter");
     private final OrderedProperties expectedConfiguration = new OrderedProperties()
             .addMapPairs(defaultConfiguration.asMap())
@@ -180,7 +176,7 @@ public class KafkaConnectClusterTest {
 
     @Test
     public void testGenerateDeployment()   {
-        Deployment dep = kc.generateDeployment(new HashMap<String, String>(), true);
+        Deployment dep = kc.generateDeployment(new HashMap<String, String>(), true, null);
 
         assertEquals(kc.kafkaConnectClusterName(cluster), dep.getMetadata().getName());
         assertEquals(namespace, dep.getMetadata().getNamespace());
@@ -210,13 +206,13 @@ public class KafkaConnectClusterTest {
     @Test
     public void withAffinity() throws IOException {
         resourceTester
-            .assertDesiredResource("-Deployment.yaml", kcc -> kcc.generateDeployment(new HashMap<String, String>(), true).getSpec().getTemplate().getSpec().getAffinity());
+            .assertDesiredResource("-Deployment.yaml", kcc -> kcc.generateDeployment(new HashMap<String, String>(), true, null).getSpec().getTemplate().getSpec().getAffinity());
     }
 
     @Test
     public void withTolerations() throws IOException {
         resourceTester
-            .assertDesiredResource("-Deployment.yaml", kcc -> kcc.generateDeployment(new HashMap<String, String>(), true).getSpec().getTemplate().getSpec().getTolerations());
+            .assertDesiredResource("-Deployment.yaml", kcc -> kcc.generateDeployment(new HashMap<String, String>(), true, null).getSpec().getTemplate().getSpec().getTolerations());
     }
 
     @Test
@@ -231,7 +227,7 @@ public class KafkaConnectClusterTest {
                 .endSpec()
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
-        Deployment dep = kc.generateDeployment(emptyMap(), true);
+        Deployment dep = kc.generateDeployment(emptyMap(), true, null);
 
         assertEquals("my-secret", dep.getSpec().getTemplate().getSpec().getVolumes().get(1).getName());
         assertEquals("my-another-secret", dep.getSpec().getTemplate().getSpec().getVolumes().get(2).getName());
@@ -265,7 +261,7 @@ public class KafkaConnectClusterTest {
                 .endSpec()
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
-        Deployment dep = kc.generateDeployment(emptyMap(), true);
+        Deployment dep = kc.generateDeployment(emptyMap(), true, null);
 
         assertEquals("user-secret", dep.getSpec().getTemplate().getSpec().getVolumes().get(2).getName());
 
@@ -298,7 +294,7 @@ public class KafkaConnectClusterTest {
                 .endSpec()
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
-        Deployment dep = kc.generateDeployment(emptyMap(), true);
+        Deployment dep = kc.generateDeployment(emptyMap(), true, null);
 
         // 2 = 1 volume from logging/metrics + just 1 from above certs Secret
         assertEquals(2, dep.getSpec().getTemplate().getSpec().getVolumes().size());
@@ -319,7 +315,7 @@ public class KafkaConnectClusterTest {
                 .endSpec()
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
-        Deployment dep = kc.generateDeployment(emptyMap(), true);
+        Deployment dep = kc.generateDeployment(emptyMap(), true, null);
 
         assertEquals("user1-secret", dep.getSpec().getTemplate().getSpec().getVolumes().get(1).getName());
 
@@ -381,7 +377,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertTrue(dep.getMetadata().getLabels().entrySet().containsAll(depLabels.entrySet()));
         assertTrue(dep.getMetadata().getAnnotations().entrySet().containsAll(depAnots.entrySet()));
 
@@ -425,7 +421,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<EnvVar> envs = dep.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
         List<EnvVar> selected = envs.stream().filter(var -> var.getName().equals("MY_ENV_VAR")).collect(Collectors.toList());
         assertEquals(1, selected.size());
@@ -452,7 +448,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<EnvVar> envs = dep.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
         List<EnvVar> selected = envs.stream().filter(var -> var.getName().equals("MY_ENV_VAR")).collect(Collectors.toList());
         assertEquals(1, selected.size());
@@ -477,7 +473,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<Volume> volumes = dep.getSpec().getTemplate().getSpec().getVolumes();
         List<Volume> selected = volumes.stream().filter(vol -> vol.getName().equals(KafkaConnectCluster.EXTERNAL_CONFIGURATION_VOLUME_NAME_PREFIX + "my-volume")).collect(Collectors.toList());
         assertEquals(1, selected.size());
@@ -508,7 +504,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<Volume> volumes = dep.getSpec().getTemplate().getSpec().getVolumes();
         List<Volume> selected = volumes.stream().filter(vol -> vol.getName().equals(KafkaConnectCluster.EXTERNAL_CONFIGURATION_VOLUME_NAME_PREFIX + "my-volume")).collect(Collectors.toList());
         assertEquals(1, selected.size());
@@ -540,7 +536,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<Volume> volumes = dep.getSpec().getTemplate().getSpec().getVolumes();
         List<Volume> selected = volumes.stream().filter(vol -> vol.getName().equals(KafkaConnectCluster.EXTERNAL_CONFIGURATION_VOLUME_NAME_PREFIX + "my-volume")).collect(Collectors.toList());
         assertEquals(0, selected.size());
@@ -566,7 +562,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<Volume> volumes = dep.getSpec().getTemplate().getSpec().getVolumes();
         List<Volume> selected = volumes.stream().filter(vol -> vol.getName().equals(KafkaConnectCluster.EXTERNAL_CONFIGURATION_VOLUME_NAME_PREFIX + "my-volume")).collect(Collectors.toList());
         assertEquals(0, selected.size());
@@ -596,7 +592,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<EnvVar> envs = dep.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
         List<EnvVar> selected = envs.stream().filter(var -> var.getName().equals("MY_ENV_VAR")).collect(Collectors.toList());
         assertEquals(0, selected.size());
@@ -620,7 +616,7 @@ public class KafkaConnectClusterTest {
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
         // Check Deployment
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         List<EnvVar> envs = dep.getSpec().getTemplate().getSpec().getContainers().get(0).getEnv();
         List<EnvVar> selected = envs.stream().filter(var -> var.getName().equals("MY_ENV_VAR")).collect(Collectors.toList());
         assertEquals(0, selected.size());
@@ -639,7 +635,7 @@ public class KafkaConnectClusterTest {
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertEquals(Long.valueOf(123), dep.getSpec().getTemplate().getSpec().getTerminationGracePeriodSeconds());
     }
 
@@ -648,7 +644,7 @@ public class KafkaConnectClusterTest {
         KafkaConnect resource = new KafkaConnectBuilder(this.resource).build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertEquals(Long.valueOf(30), dep.getSpec().getTemplate().getSpec().getTerminationGracePeriodSeconds());
     }
 
@@ -668,7 +664,7 @@ public class KafkaConnectClusterTest {
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertEquals(2, dep.getSpec().getTemplate().getSpec().getImagePullSecrets().size());
         assertTrue(dep.getSpec().getTemplate().getSpec().getImagePullSecrets().contains(secret1));
         assertTrue(dep.getSpec().getTemplate().getSpec().getImagePullSecrets().contains(secret2));
@@ -679,7 +675,7 @@ public class KafkaConnectClusterTest {
         KafkaConnect resource = new KafkaConnectBuilder(this.resource).build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertEquals(0, dep.getSpec().getTemplate().getSpec().getImagePullSecrets().size());
     }
 
@@ -696,7 +692,7 @@ public class KafkaConnectClusterTest {
                 .build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertNotNull(dep.getSpec().getTemplate().getSpec().getSecurityContext());
         assertEquals(Long.valueOf(123), dep.getSpec().getTemplate().getSpec().getSecurityContext().getFsGroup());
         assertEquals(Long.valueOf(456), dep.getSpec().getTemplate().getSpec().getSecurityContext().getRunAsGroup());
@@ -708,7 +704,7 @@ public class KafkaConnectClusterTest {
         KafkaConnect resource = new KafkaConnectBuilder(this.resource).build();
         KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
 
-        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true);
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, null);
         assertNull(dep.getSpec().getTemplate().getSpec().getSecurityContext());
     }
 
@@ -736,5 +732,16 @@ public class KafkaConnectClusterTest {
 
         PodDisruptionBudget pdb = kc.generatePodDisruptionBudget();
         assertEquals(new IntOrString(1), pdb.getSpec().getMaxUnavailable());
+    }
+
+    @Test
+    public void testImagePullPolicy() {
+        KafkaConnectCluster kc = KafkaConnectCluster.fromCrd(resource, VERSIONS);
+
+        Deployment dep = kc.generateDeployment(Collections.EMPTY_MAP, true, ImagePullPolicy.ALWAYS);
+        assertEquals(ImagePullPolicy.ALWAYS.toString(), dep.getSpec().getTemplate().getSpec().getContainers().get(0).getImagePullPolicy());
+
+        dep = kc.generateDeployment(Collections.EMPTY_MAP, true, ImagePullPolicy.IFNOTPRESENT);
+        assertEquals(ImagePullPolicy.IFNOTPRESENT.toString(), dep.getSpec().getTemplate().getSpec().getContainers().get(0).getImagePullPolicy());
     }
 }

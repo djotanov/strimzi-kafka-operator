@@ -59,10 +59,20 @@ to use (default is `latest`).
 
 ### Alternate Docker image JRE
 
-The docker images can be built with an alternate java version by adding the environment variable JAVA_VERSION.
-For example, to build docker images that have java 11 package use `JAVA_VERSION=11 make docker_build`.
-If not present, JAVA_VERSION is defaulted to **1.8.0**.  At present, JAVA_VERSION does not determine the jdk which builds
-the operator, only the JRE which runs the operator and kafka components.
+The docker images can be built with an alternate java version by setting the environment variable
+`JAVA_VERSION`.  For example, to build docker images that have the java 11 JRE installed use
+`JAVA_VERSION=11 make docker_build`.  If not present, JAVA_VERSION is defaulted to **1.8.0**.
+
+If `JAVA_VERSION` environment variable is set, a profile in the parent pom.xml will set the
+`maven.compiler.source` and `maven.compiler.target` properties.
+
+### Alternate Docker base image
+
+The docker images can be built with an alternate container OS version by adding the environment
+variable ```ALTERNATE_BASE```.  When this environment variable is set, for each component the build
+will look for a Dockerfile in the subdirectory named by ```ALTERNATE_BASE```.  For example, to build
+docker images based on alpine, use `ALTERNATE_BASE=alpine make docker_build`.  Alternate docker
+images are an experimental feature not supported by the core Strimzi team.
 
 ### Tagging and pushing Docker images
 
@@ -206,7 +216,7 @@ Use the `test` build goal and provide a `-Dtest=TestClassName[#testMethodName]` 
 
 Ex)
 
-    mvn test -pl systemtest -Djava.net.preferIPv4Stack=true -DtrimStackTrace=false -DjunitTags=acceptance,regression -Dtest=KafkaST#testKafkaAndZookeeperScaleUpScaleDown
+    mvn test -pl systemtest -Psystemtests -Djava.net.preferIPv4Stack=true -DtrimStackTrace=false -DjunitTags=acceptance,regression -Dtest=KafkaST#testKafkaAndZookeeperScaleUpScaleDown
 
 
 ### Log level

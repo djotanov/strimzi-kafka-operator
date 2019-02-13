@@ -6,8 +6,10 @@ package io.strimzi.operator.cluster;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
+import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.Secret;
 import io.fabric8.kubernetes.api.model.SecretBuilder;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.strimzi.api.kafka.model.EphemeralStorage;
 import io.strimzi.api.kafka.model.Kafka;
 import io.strimzi.api.kafka.model.KafkaBuilder;
@@ -36,11 +38,26 @@ import io.strimzi.operator.cluster.model.ClientsCa;
 import io.strimzi.operator.cluster.model.ClusterCa;
 import io.strimzi.operator.cluster.model.KafkaCluster;
 import io.strimzi.operator.cluster.model.ZookeeperCluster;
+import io.strimzi.operator.cluster.operator.resource.ZookeeperLeaderFinder;
+import io.strimzi.operator.common.BackOff;
 import io.strimzi.operator.common.model.Labels;
 import io.strimzi.operator.common.operator.MockCertManager;
+import io.strimzi.operator.common.operator.resource.SecretOperator;
+import io.strimzi.operator.common.operator.resource.WorkaroundRbacOperator;
 import io.strimzi.test.TestUtils;
+import io.vertx.core.Future;
+import io.vertx.core.Vertx;
+import io.vertx.core.net.NetClientOptions;
+import io.vertx.core.net.PemKeyCertOptions;
+import io.vertx.core.net.PemTrustOptions;
+import okhttp3.Call;
+import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -50,7 +67,16 @@ import java.util.Map;
 
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.singletonMap;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+@SuppressWarnings({
+        "checkstyle:ClassDataAbstractionCoupling",
+        "checkstyle:ClassFanOutComplexity"
+})
 public class ResourceUtils {
 
     private ResourceUtils() {
@@ -422,6 +448,48 @@ public class ResourceUtils {
                 }
             });
         } catch (IOException e) {
+        }
+    }
+
+    public static ZookeeperLeaderFinder zookeeperLeaderFinder(Vertx vertx, KubernetesClient client) {
+        return new ZookeeperLeaderFinder(vertx, new SecretOperator(vertx, client),
+            () -> new BackOff(5_000, 2, 4)) {
+            @Override
+            protected Future<Boolean> isLeader(Pod pod, NetClientOptions options) {
+                return Future.succeededFuture(true);
+            }
+
+            @Override
+            protected PemTrustOptions trustOptions(Secret s) {
+                return new PemTrustOptions();
+            }
+
+            @Override
+            protected PemKeyCertOptions keyCertOptions(Secret s) {
+                return new PemKeyCertOptions();
+            }
+        };
+    }
+
+    /**
+     * @deprecated this can be removed when {@link WorkaroundRbacOperator} is removed.
+     */
+    @Deprecated
+    public static void mockHttpClientForWorkaroundRbac(KubernetesClient mockClient) {
+        when(mockClient.isAdaptable(OkHttpClient.class)).thenReturn(true);
+        OkHttpClient mc = mock(OkHttpClient.class);
+        try {
+            doAnswer(i -> {
+                Call call = mock(Call.class);
+                Request req = i.getArgument(0);
+                Response resp = new Response.Builder().protocol(Protocol.HTTP_1_1).request(req).code(200).message("OK").build();
+                doReturn(resp).when(call).execute();
+                return call;
+            }).when(mc).newCall(any());
+            when(mockClient.adapt(OkHttpClient.class)).thenReturn(mc);
+            when(mockClient.getMasterUrl()).thenReturn(new URL("http://localhost"));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
     }
 }

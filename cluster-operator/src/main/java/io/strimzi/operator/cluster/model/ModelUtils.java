@@ -23,11 +23,13 @@ import io.strimzi.api.kafka.model.Resources;
 import io.strimzi.api.kafka.model.Storage;
 import io.strimzi.api.kafka.model.TlsSidecar;
 import io.strimzi.api.kafka.model.TlsSidecarLogLevel;
-import io.strimzi.certs.CertAndKey;
 import io.strimzi.api.kafka.model.template.PodDisruptionBudgetTemplate;
 import io.strimzi.api.kafka.model.template.PodTemplate;
+import io.strimzi.certs.CertAndKey;
 import io.strimzi.operator.cluster.KafkaUpgradeException;
 import io.strimzi.operator.common.model.Labels;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -39,9 +41,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-
 import static io.strimzi.api.kafka.model.Quantities.normalizeCpu;
 import static io.strimzi.api.kafka.model.Quantities.normalizeMemory;
 
@@ -49,6 +48,10 @@ public class ModelUtils {
     private ModelUtils() {}
 
     protected static final Logger log = LogManager.getLogger(ModelUtils.class.getName());
+
+    public static final String KUBERNETES_SERVICE_DNS_DOMAIN =
+            System.getenv().getOrDefault("KUBERNETES_SERVICE_DNS_DOMAIN", "cluster.local");
+
     /**
      * Find the first secret in the given secrets with the given name
      */
@@ -57,7 +60,7 @@ public class ModelUtils {
     }
 
     public static int getCertificateValidity(CertificateAuthority certificateAuthority) {
-        int validity = AbstractModel.CERTS_EXPIRATION_DAYS;
+        int validity = CertificateAuthority.DEFAULT_CERTS_VALIDITY_DAYS;
         if (certificateAuthority != null
                 && certificateAuthority.getValidityDays() > 0) {
             validity = certificateAuthority.getValidityDays();
@@ -66,7 +69,7 @@ public class ModelUtils {
     }
 
     public static int getRenewalDays(CertificateAuthority certificateAuthority) {
-        return certificateAuthority != null ? certificateAuthority.getRenewalDays() : 30;
+        return certificateAuthority != null ? certificateAuthority.getRenewalDays() : CertificateAuthority.DEFAULT_CERTS_RENEWAL_DAYS;
     }
 
     /**

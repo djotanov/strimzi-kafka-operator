@@ -23,6 +23,7 @@ import io.strimzi.api.kafka.model.KafkaBuilder;
 import io.strimzi.api.kafka.model.KafkaResources;
 import io.strimzi.api.kafka.model.TopicOperatorSpec;
 import io.strimzi.api.kafka.model.TopicOperatorSpecBuilder;
+import io.strimzi.operator.cluster.ResourceUtils;
 import io.strimzi.operator.cluster.model.Ca;
 import io.strimzi.operator.cluster.model.ClientsCa;
 import io.strimzi.operator.cluster.model.ClusterCa;
@@ -35,6 +36,7 @@ import io.strimzi.operator.cluster.operator.resource.ResourceOperatorSupplier;
 import io.strimzi.operator.common.Reconciliation;
 import io.strimzi.operator.common.model.ResourceType;
 import io.strimzi.operator.common.operator.resource.ReconcileResult;
+import io.strimzi.test.mockkube.MockKube;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
@@ -85,6 +87,7 @@ public class MaintenanceTimeWindowsTest {
                 .withInitialInstances(Collections.singleton(this.kafka))
                 .end()
                 .build();
+        ResourceUtils.mockHttpClientForWorkaroundRbac(mockClient);
 
         this.clusterCaSecret = new SecretBuilder()
                 .withNewMetadata()
@@ -109,7 +112,7 @@ public class MaintenanceTimeWindowsTest {
         ResourceOperatorSupplier ros =
                 new ResourceOperatorSupplier(this.vertx, this.mockClient, false, 60_000L);
 
-        KafkaAssemblyOperator kao = new KafkaAssemblyOperator(this.vertx, false, 2_000, null, ros, VERSIONS);
+        KafkaAssemblyOperator kao = new KafkaAssemblyOperator(this.vertx, false, 2_000, null, ros, VERSIONS, null);
 
         Reconciliation reconciliation = new Reconciliation("test-trigger", ResourceType.KAFKA, NAMESPACE, NAME);
 
@@ -441,7 +444,7 @@ public class MaintenanceTimeWindowsTest {
 
         this.init(maintenanceTimeWindows);
 
-        StatefulSet zkSS = ZookeeperCluster.fromCrd(this.kafka, VERSIONS).generateStatefulSet(false);
+        StatefulSet zkSS = ZookeeperCluster.fromCrd(this.kafka, VERSIONS).generateStatefulSet(false, null);
         zkSS.getSpec().getTemplate().getMetadata().getAnnotations().put(Ca.ANNO_STRIMZI_IO_CLUSTER_CA_CERT_GENERATION, "0");
         this.mockClient.apps().statefulSets().inNamespace(NAMESPACE).withName(ZookeeperCluster.zookeeperClusterName(NAME)).create(zkSS);
 
@@ -466,7 +469,7 @@ public class MaintenanceTimeWindowsTest {
 
         this.init(maintenanceTimeWindows);
 
-        StatefulSet kafkaSS = KafkaCluster.fromCrd(this.kafka, VERSIONS).generateStatefulSet(false);
+        StatefulSet kafkaSS = KafkaCluster.fromCrd(this.kafka, VERSIONS).generateStatefulSet(false, null);
         kafkaSS.getSpec().getTemplate().getMetadata().getAnnotations().put(Ca.ANNO_STRIMZI_IO_CLUSTER_CA_CERT_GENERATION, "0");
         kafkaSS.getSpec().getTemplate().getMetadata().getAnnotations().put(Ca.ANNO_STRIMZI_IO_CLIENTS_CA_CERT_GENERATION, "0");
         this.mockClient.apps().statefulSets().inNamespace(NAMESPACE).withName(KafkaCluster.kafkaClusterName(NAME)).create(kafkaSS);
@@ -501,7 +504,7 @@ public class MaintenanceTimeWindowsTest {
         this.init(maintenanceTimeWindows);
 
         EntityOperator eo = EntityOperator.fromCrd(this.kafka);
-        Deployment eoDep = eo.generateDeployment(false, Collections.EMPTY_MAP);
+        Deployment eoDep = eo.generateDeployment(false, Collections.EMPTY_MAP, null);
         eoDep.getSpec().getTemplate().getMetadata().getAnnotations().put(Ca.ANNO_STRIMZI_IO_CLUSTER_CA_CERT_GENERATION, "0");
         this.mockClient.extensions().deployments().inNamespace(NAMESPACE).withName(EntityOperator.entityOperatorName(NAME)).create(eoDep);
 
@@ -532,7 +535,7 @@ public class MaintenanceTimeWindowsTest {
         this.initWithTopicOperator(maintenanceTimeWindows);
 
         TopicOperator to = TopicOperator.fromCrd(this.kafka);
-        Deployment toDep = to.generateDeployment(false);
+        Deployment toDep = to.generateDeployment(false, null);
         toDep.getSpec().getTemplate().getMetadata().getAnnotations().put(Ca.ANNO_STRIMZI_IO_CLUSTER_CA_CERT_GENERATION, "0");
         this.mockClient.extensions().deployments().inNamespace(NAMESPACE).withName(TopicOperator.topicOperatorName(NAME)).create(toDep);
 

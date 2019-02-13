@@ -17,13 +17,13 @@ import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.kubernetes.api.model.Volume;
 import io.fabric8.kubernetes.api.model.VolumeMount;
+import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.networking.NetworkPolicy;
 import io.fabric8.kubernetes.api.model.networking.NetworkPolicyBuilder;
 import io.fabric8.kubernetes.api.model.networking.NetworkPolicyIngressRule;
 import io.fabric8.kubernetes.api.model.networking.NetworkPolicyIngressRuleBuilder;
 import io.fabric8.kubernetes.api.model.networking.NetworkPolicyPeer;
 import io.fabric8.kubernetes.api.model.networking.NetworkPolicyPort;
-import io.fabric8.kubernetes.api.model.apps.StatefulSet;
 import io.fabric8.kubernetes.api.model.policy.PodDisruptionBudget;
 import io.strimzi.api.kafka.model.EphemeralStorage;
 import io.strimzi.api.kafka.model.InlineLogging;
@@ -102,6 +102,14 @@ public class ZookeeperCluster extends AbstractModel {
 
     public static String headlessServiceName(String cluster) {
         return cluster + ZookeeperCluster.HEADLESS_SERVICE_NAME_SUFFIX;
+    }
+
+    public static String podDnsName(String namespace, String cluster, int podId) {
+        return String.format("%s.%s.%s.svc.%s",
+                ZookeeperCluster.zookeeperPodName(cluster, podId),
+                ZookeeperCluster.headlessServiceName(cluster),
+                namespace,
+                ModelUtils.KUBERNETES_SERVICE_DNS_DOMAIN);
     }
 
     public static String zookeeperPodName(String cluster, int pod) {
@@ -309,15 +317,15 @@ public class ZookeeperCluster extends AbstractModel {
         return createHeadlessService(getServicePortList(), annotations);
     }
 
-    public StatefulSet generateStatefulSet(boolean isOpenShift) {
+    public StatefulSet generateStatefulSet(boolean isOpenShift, ImagePullPolicy imagePullPolicy) {
 
         return createStatefulSet(
                 emptyMap(),
                 getVolumes(isOpenShift),
                 getVolumeClaims(),
                 getMergedAffinity(),
-                getInitContainers(),
-                getContainers(),
+                getInitContainers(imagePullPolicy),
+                getContainers(imagePullPolicy),
                 isOpenShift);
     }
 
@@ -352,7 +360,7 @@ public class ZookeeperCluster extends AbstractModel {
     }
 
     @Override
-    protected List<Container> getContainers() {
+    protected List<Container> getContainers(ImagePullPolicy imagePullPolicy) {
 
         List<Container> containers = new ArrayList<>();
 
@@ -365,6 +373,7 @@ public class ZookeeperCluster extends AbstractModel {
                 .withLivenessProbe(ModelUtils.createExecProbe(Collections.singletonList(livenessPath), livenessInitialDelay, livenessTimeout))
                 .withReadinessProbe(ModelUtils.createExecProbe(Collections.singletonList(readinessPath), readinessInitialDelay, readinessTimeout))
                 .withResources(ModelUtils.resources(getResources()))
+                .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, getImage()))
                 .build();
 
         String tlsSidecarImage = ZookeeperClusterSpec.DEFAULT_TLS_SIDECAR_IMAGE;
@@ -386,6 +395,7 @@ public class ZookeeperCluster extends AbstractModel {
                                 createContainerPort(LEADER_ELECTION_PORT_NAME, LEADER_ELECTION_PORT, "TCP"),
                                 createContainerPort(CLIENT_PORT_NAME, CLIENT_PORT, "TCP")))
                 .withLifecycle(new LifecycleBuilder().withNewPreStop().withNewExec().withCommand("/opt/stunnel/stunnel_pre_stop.sh", String.valueOf(templateTerminationGracePeriodSeconds)).endExec().endPreStop().build())
+                .withImagePullPolicy(determineImagePullPolicy(imagePullPolicy, tlsSidecarImage))
                 .build();
 
         containers.add(container);
